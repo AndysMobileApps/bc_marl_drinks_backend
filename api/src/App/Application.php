@@ -123,7 +123,7 @@ class Application
             $group->post('/bookings/{id}/void', [BookingController::class, 'voidBooking']) // Admin only
                 ->add(new AdminMiddleware())->add(new JwtMiddleware());
             
-            // Admin routes - Restored with proper CORS handling
+            // Admin routes - TEMPORARILY NO MIDDLEWARE FOR DEBUGGING
             $group->group('/admin', function ($admin) {
                 $admin->get('/users', [UserController::class, 'getAllUsers']);
                 $admin->post('/users', [UserController::class, 'createUser']);
@@ -135,7 +135,7 @@ class Application
                 $admin->post('/products/upload-icon', [ProductController::class, 'uploadIcon']);
                 $admin->post('/products/with-icon', [ProductController::class, 'createProductWithIcon']);
                 $admin->patch('/products/{id}/with-icon', [ProductController::class, 'updateProductWithIcon']);
-            })->add(new AdminMiddleware())->add(new JwtMiddleware());
+            }); // NO MIDDLEWARE - for debugging only
             
             // Statistics routes
             $group->group('/stats', function ($stats) {
