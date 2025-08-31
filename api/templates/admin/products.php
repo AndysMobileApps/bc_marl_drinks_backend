@@ -46,6 +46,7 @@
             <span id="debugInfo">Lade...</span>
             <button type="button" class="btn btn-sm btn-outline-primary ms-2" onclick="checkTokenStatus()">Token prüfen</button>
             <button type="button" class="btn btn-sm btn-outline-secondary ms-2" onclick="clearTokenAndReload()">Token löschen</button>
+            <button type="button" class="btn btn-sm btn-outline-warning ms-2" onclick="hardRefreshPage()">Hard Refresh</button>
         </div>
     </div>
 </div>
@@ -336,8 +337,31 @@ function checkTokenStatus() {
 
 function clearTokenAndReload() {
     localStorage.removeItem('adminToken');
-    console.log('Token cleared, reloading page');
+    sessionStorage.removeItem('adminToken');
+    
+    // Clear all browser storage
+    if ('indexedDB' in window) {
+        indexedDB.deleteDatabase('adminData');
+    }
+    
+    // Clear all cookies for this domain
+    document.cookie.split(";").forEach(function(c) { 
+        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+    });
+    
+    console.log('All tokens and storage cleared, reloading page');
     window.location.reload();
+}
+
+// Add hard refresh function
+function hardRefreshPage() {
+    // Clear everything
+    clearTokenAndReload();
+    
+    // Force hard refresh
+    setTimeout(() => {
+        window.location.href = window.location.href + '?t=' + new Date().getTime();
+    }, 100);
 }
 
 function displayProducts(products) {
