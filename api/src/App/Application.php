@@ -126,6 +126,10 @@ class Application
                 $admin->post('/users/{id}/deposit', [UserController::class, 'depositMoney']);
                 $admin->post('/products', [ProductController::class, 'createProduct']);
                 $admin->patch('/products/{id}', [ProductController::class, 'updateProduct']);
+                // File upload routes
+                $admin->post('/products/upload-icon', [ProductController::class, 'uploadIcon']);
+                $admin->post('/products/with-icon', [ProductController::class, 'createProductWithIcon']);
+                $admin->patch('/products/{id}/with-icon', [ProductController::class, 'updateProductWithIcon']);
             })->add(new AdminMiddleware())->add(new JwtMiddleware());
             
             // Statistics routes

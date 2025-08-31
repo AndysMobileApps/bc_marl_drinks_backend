@@ -55,7 +55,7 @@
                 <h5 class="modal-title">Produkt bearbeiten</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form id="productForm">
+            <form id="productForm" enctype="multipart/form-data">
                 <div class="modal-body">
                     <input type="hidden" id="productId" name="productId">
                     
@@ -65,9 +65,20 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label for="productIcon" class="form-label">Icon (Bildpfad)</label>
-                        <input type="text" class="form-control" id="productIcon" name="icon" placeholder="/images/icons/beer.png">
-                        <div class="form-text">Pfad zur Icon-Datei (z.B. /images/icons/beer.png)</div>
+                        <label for="productIcon" class="form-label">Icon</label>
+                        <div class="row">
+                            <div class="col-md-8">
+                                <input type="file" class="form-control" id="productIconFile" name="iconFile" accept="image/*">
+                                <div class="form-text">Bild hochladen (JPG, PNG, GIF, WebP - max. 5MB)</div>
+                            </div>
+                            <div class="col-md-4">
+                                <img id="iconPreview" src="" alt="Icon Vorschau" class="img-thumbnail" style="display: none; max-height: 64px;">
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <small class="text-muted">Oder Icon-Pfad eingeben:</small>
+                            <input type="text" class="form-control form-control-sm" id="productIcon" name="icon" placeholder="/images/icons/beer.png">
+                        </div>
                     </div>
                     
                     <div class="row">
@@ -116,6 +127,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('searchProducts').addEventListener('input', filterProducts);
     document.getElementById('categoryFilter').addEventListener('change', filterProducts);
     document.getElementById('statusFilter').addEventListener('change', filterProducts);
+    document.getElementById('productIconFile').addEventListener('change', handleIconFileChange);
 });
 
 async function loadProducts() {
@@ -227,6 +239,9 @@ function openProductModal(product = null) {
     const form = document.getElementById('productForm');
     form.reset();
     
+    // Hide icon preview
+    document.getElementById('iconPreview').style.display = 'none';
+    
     if (product) {
         document.getElementById('productId').value = product.id;
         document.getElementById('productName').value = product.name;
@@ -234,6 +249,13 @@ function openProductModal(product = null) {
         document.getElementById('productPrice').value = product.priceCents / 100;
         document.getElementById('productCategory').value = product.category;
         document.getElementById('productActive').checked = product.active;
+        
+        // Show current icon
+        if (product.icon) {
+            const preview = document.getElementById('iconPreview');
+            preview.src = product.icon;
+            preview.style.display = 'block';
+        }
     } else {
         document.getElementById('productActive').checked = true;
     }
@@ -252,33 +274,94 @@ async function handleProductSubmit(e) {
     e.preventDefault();
     
     const formData = new FormData(e.target);
-    const productData = {
-        name: formData.get('name'),
-        icon: formData.get('icon'),
-        priceCents: Math.round(parseFloat(formData.get('price')) * 100),
-        category: formData.get('category'),
-        active: formData.has('active')
-    };
-    
     const token = localStorage.getItem('adminToken');
     const productId = formData.get('productId');
     
+    // Check if a file is being uploaded
+    const iconFile = formData.get('iconFile');
+    const hasIconFile = iconFile && iconFile.size > 0;
+    
     try {
-        const response = await fetch(productId ? `/v1/admin/products/${productId}` : '/v1/admin/products', {
-            method: productId ? 'PATCH' : 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(productData)
-        });
+        let response;
+        
+        if (hasIconFile) {
+            // Use multipart form submission for file upload
+            formData.set('price', formData.get('price')); // Keep price as string for backend conversion
+            
+            response = await fetch(productId ? `/v1/admin/products/${productId}/with-icon` : '/v1/admin/products/with-icon', {
+                method: productId ? 'PATCH' : 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
+            });
+        } else {
+            // Use JSON submission for regular updates
+            const productData = {
+                name: formData.get('name'),
+                icon: formData.get('icon'),
+                priceCents: Math.round(parseFloat(formData.get('price')) * 100),
+                category: formData.get('category'),
+                active: formData.has('active')
+            };
+            
+            response = await fetch(productId ? `/v1/admin/products/${productId}` : '/v1/admin/products', {
+                method: productId ? 'PATCH' : 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(productData)
+            });
+        }
         
         if (response.ok) {
             bootstrap.Modal.getInstance(document.getElementById('productModal')).hide();
             loadProducts();
+        } else {
+            const error = await response.json();
+            alert('Fehler beim Speichern: ' + (error.message || 'Unbekannter Fehler'));
         }
     } catch (error) {
         console.error('Error saving product:', error);
+        alert('Fehler beim Speichern des Produkts');
+    }
+}
+
+function handleIconFileChange(e) {
+    const file = e.target.files[0];
+    const preview = document.getElementById('iconPreview');
+    
+    if (file) {
+        // Validate file type
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+            alert('Ungültiger Dateityp. Nur JPG, PNG, GIF und WebP sind erlaubt.');
+            e.target.value = '';
+            preview.style.display = 'none';
+            return;
+        }
+        
+        // Validate file size (5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            alert('Datei ist zu groß. Maximum 5MB erlaubt.');
+            e.target.value = '';
+            preview.style.display = 'none';
+            return;
+        }
+        
+        // Show preview
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+        
+        // Clear icon path field when file is selected
+        document.getElementById('productIcon').value = '';
+    } else {
+        preview.style.display = 'none';
     }
 }
 
