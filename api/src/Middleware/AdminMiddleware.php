@@ -11,13 +11,24 @@ class AdminMiddleware
 {
     public function __invoke(Request $request, RequestHandler $handler): Response
     {
+        // Debug logging
+        error_log("AdminMiddleware: Processing request to " . $request->getUri()->getPath());
+        
         // Check if user role is available (should be set by JwtMiddleware)
         $userRole = $request->getAttribute('userRole');
+        $userId = $request->getAttribute('userId');
+        $userEmail = $request->getAttribute('userEmail');
+        
+        error_log("AdminMiddleware: userRole = " . ($userRole ?? 'NULL'));
+        error_log("AdminMiddleware: userId = " . ($userId ?? 'NULL'));
+        error_log("AdminMiddleware: userEmail = " . ($userEmail ?? 'NULL'));
         
         if ($userRole !== 'admin') {
+            error_log("AdminMiddleware: Access denied - role is '$userRole', expected 'admin'");
             return $this->forbiddenResponse();
         }
         
+        error_log("AdminMiddleware: Access granted for admin user");
         return $handler->handle($request);
     }
     

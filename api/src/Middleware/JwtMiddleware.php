@@ -27,13 +27,21 @@ class JwtMiddleware
         try {
             $payload = JwtService::validateToken($token);
             
+            // Debug logging
+            error_log("JwtMiddleware: Token validated for " . ($payload['email'] ?? 'unknown'));
+            error_log("JwtMiddleware: User role = " . ($payload['role'] ?? 'unknown'));
+            error_log("JwtMiddleware: Request path = " . $request->getUri()->getPath());
+            
             // Add user info to request attributes for use in controllers
             $request = $request->withAttribute('userId', $payload['userId']);
             $request = $request->withAttribute('userRole', $payload['role']);
             $request = $request->withAttribute('userEmail', $payload['email']);
             
+            error_log("JwtMiddleware: Attributes set successfully");
+            
             return $handler->handle($request);
         } catch (\Exception $e) {
+            error_log("JwtMiddleware: Token validation failed - " . $e->getMessage());
             return $this->unauthorizedResponse();
         }
     }
