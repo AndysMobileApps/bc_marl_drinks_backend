@@ -5,7 +5,7 @@
                 <i class="bi bi-box text-primary"></i>
                 Produktverwaltung
             </h1>
-            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#productModal" onclick="openProductModal()">
+            <button type="button" class="btn btn-primary" onclick="createNewProduct()">
                 <i class="bi bi-plus-circle"></i> Neues Produkt
             </button>
         </div>
@@ -38,6 +38,18 @@
     </div>
 </div>
 
+<!-- Debug Panel (only in development) -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <strong>Debug Info:</strong>
+            <span id="debugInfo">Lade...</span>
+            <button type="button" class="btn btn-sm btn-outline-primary ms-2" onclick="checkTokenStatus()">Token prüfen</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary ms-2" onclick="clearTokenAndReload()">Token löschen</button>
+        </div>
+    </div>
+</div>
+
 <!-- Products Grid -->
 <div class="row" id="productsGrid">
     <div class="col-12 text-center">
@@ -52,7 +64,7 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Produkt bearbeiten</h5>
+                <h5 class="modal-title" id="productModalTitle">Produkt bearbeiten</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form id="productForm" enctype="multipart/form-data">
@@ -121,14 +133,16 @@
 let allProducts = [];
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Check if admin is logged in
+    // Check if admin is logged in with better validation
     const token = localStorage.getItem('adminToken');
     if (!token) {
+        console.log('No admin token found, redirecting to login');
         window.location.href = '/admin/login';
         return;
     }
     
-    loadProducts();
+    // Validate token before proceeding
+    validateTokenAndLoadProducts();
     
     document.getElementById('productForm').addEventListener('submit', handleProductSubmit);
     document.getElementById('searchProducts').addEventListener('input', filterProducts);
@@ -137,15 +151,51 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('productIconFile').addEventListener('change', handleIconFileChange);
 });
 
+async function validateTokenAndLoadProducts() {
+    const token = localStorage.getItem('adminToken');
+    
+    try {
+        // First validate the token
+        const validateResponse = await fetch('/v1/auth/validate', {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (validateResponse.ok) {
+            const result = await validateResponse.json();
+            if (result.valid && result.user && result.user.role === 'admin') {
+                console.log('Admin token validated successfully');
+                loadProducts();
+                return;
+            }
+        }
+        
+        // Token invalid - remove and redirect
+        console.log('Token validation failed, redirecting to login');
+        localStorage.removeItem('adminToken');
+        window.location.href = '/admin/login';
+        
+    } catch (error) {
+        console.error('Error validating token:', error);
+        localStorage.removeItem('adminToken');
+        window.location.href = '/admin/login';
+    }
+}
+
 async function loadProducts() {
     const token = localStorage.getItem('adminToken');
     
     if (!token) {
+        console.log('No token in loadProducts, redirecting to login');
         window.location.href = '/admin/login';
         return;
     }
     
     try {
+        console.log('Loading products with token:', token.substring(0, 50) + '...');
+        
         const response = await fetch('/v1/products', {
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -153,7 +203,10 @@ async function loadProducts() {
             }
         });
         
+        console.log('Products API response status:', response.status);
+        
         if (response.status === 401) {
+            console.log('401 Unauthorized, clearing token and redirecting');
             localStorage.removeItem('adminToken');
             window.location.href = '/admin/login';
             return;
@@ -162,13 +215,72 @@ async function loadProducts() {
         if (response.ok) {
             const result = await response.json();
             allProducts = result.products || [];
+            console.log('Loaded', allProducts.length, 'products successfully');
             displayProducts(allProducts);
         } else {
             console.error('Error loading products:', response.status, response.statusText);
+            const errorText = await response.text();
+            console.error('Response body:', errorText);
         }
     } catch (error) {
         console.error('Error loading products:', error);
     }
+    
+    updateDebugInfo();
+}
+
+function updateDebugInfo() {
+    const token = localStorage.getItem('adminToken');
+    const debugElement = document.getElementById('debugInfo');
+    
+    if (token) {
+        debugElement.innerHTML = `Token vorhanden: ${token.substring(0, 30)}... (${token.length} Zeichen)`;
+    } else {
+        debugElement.innerHTML = '<span class="text-danger">Kein Token vorhanden</span>';
+    }
+}
+
+function checkTokenStatus() {
+    const token = localStorage.getItem('adminToken');
+    console.log('=== TOKEN STATUS CHECK ===');
+    console.log('Token exists:', !!token);
+    
+    if (token) {
+        console.log('Token length:', token.length);
+        console.log('Token preview:', token.substring(0, 100) + '...');
+        
+        // Test token validity
+        fetch('/v1/auth/validate', {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            console.log('Token validation response status:', response.status);
+            return response.json();
+        })
+        .then(result => {
+            console.log('Token validation result:', result);
+            if (result.valid) {
+                alert('Token ist gültig! User: ' + result.user.email + ' (Role: ' + result.user.role + ')');
+            } else {
+                alert('Token ist ungültig!');
+            }
+        })
+        .catch(error => {
+            console.error('Token validation error:', error);
+            alert('Fehler bei Token-Validierung: ' + error.message);
+        });
+    } else {
+        alert('Kein Token im localStorage gefunden!');
+    }
+}
+
+function clearTokenAndReload() {
+    localStorage.removeItem('adminToken');
+    console.log('Token cleared, reloading page');
+    window.location.reload();
 }
 
 function displayProducts(products) {
@@ -256,11 +368,24 @@ function getCategoryLabel(category) {
 }
 
 function openProductModal(product = null) {
+    // Check token before opening modal
+    const token = localStorage.getItem('adminToken');
+    if (!token) {
+        console.log('No token when opening product modal');
+        alert('Sitzung abgelaufen. Bitte melden Sie sich erneut an.');
+        window.location.href = '/admin/login';
+        return;
+    }
+    
     const form = document.getElementById('productForm');
     form.reset();
     
     // Hide icon preview
     document.getElementById('iconPreview').style.display = 'none';
+    
+    // Set modal title
+    const modalTitle = document.getElementById('productModalTitle');
+    modalTitle.textContent = product ? 'Produkt bearbeiten' : 'Neues Produkt erstellen';
     
     if (product) {
         document.getElementById('productId').value = product.id;
@@ -298,9 +423,21 @@ async function handleProductSubmit(e) {
     const productId = formData.get('productId');
     
     if (!token) {
+        console.log('No token in handleProductSubmit, redirecting to login');
         window.location.href = '/admin/login';
         return;
     }
+    
+    console.log('Submitting product with token:', token.substring(0, 50) + '...');
+    console.log('Product ID:', productId || 'new product');
+    console.log('Form data:', {
+        name: formData.get('name'),
+        price: formData.get('price'),
+        category: formData.get('category'),
+        active: formData.has('active'),
+        icon: formData.get('icon'),
+        hasIconFile: formData.get('iconFile') && formData.get('iconFile').size > 0
+    });
     
     // Check if a file is being uploaded
     const iconFile = formData.get('iconFile');
@@ -308,12 +445,16 @@ async function handleProductSubmit(e) {
     
     try {
         let response;
+        let url;
         
         if (hasIconFile) {
             // Use multipart form submission for file upload
+            url = productId ? `/v1/admin/products/${productId}/with-icon` : '/v1/admin/products/with-icon';
             formData.set('price', formData.get('price')); // Keep price as string for backend conversion
             
-            response = await fetch(productId ? `/v1/admin/products/${productId}/with-icon` : '/v1/admin/products/with-icon', {
+            console.log('Using multipart upload to:', url);
+            
+            response = await fetch(url, {
                 method: productId ? 'PATCH' : 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -322,6 +463,7 @@ async function handleProductSubmit(e) {
             });
         } else {
             // Use JSON submission for regular updates
+            url = productId ? `/v1/admin/products/${productId}` : '/v1/admin/products';
             const productData = {
                 name: formData.get('name'),
                 icon: formData.get('icon'),
@@ -330,7 +472,10 @@ async function handleProductSubmit(e) {
                 active: formData.has('active')
             };
             
-            response = await fetch(productId ? `/v1/admin/products/${productId}` : '/v1/admin/products', {
+            console.log('Using JSON submission to:', url);
+            console.log('Product data:', productData);
+            
+            response = await fetch(url, {
                 method: productId ? 'PATCH' : 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -340,13 +485,18 @@ async function handleProductSubmit(e) {
             });
         }
         
+        console.log('API response status:', response.status, response.statusText);
+        
         if (response.status === 401) {
+            console.log('401 Unauthorized in handleProductSubmit, clearing token');
             localStorage.removeItem('adminToken');
             window.location.href = '/admin/login';
             return;
         }
         
         if (response.ok) {
+            const result = await response.json();
+            console.log('Product saved successfully:', result);
             bootstrap.Modal.getInstance(document.getElementById('productModal')).hide();
             loadProducts();
         } else {
@@ -407,6 +557,12 @@ function handleIconFileChange(e) {
     } else {
         preview.style.display = 'none';
     }
+}
+
+function createNewProduct() {
+    openProductModal();
+    const productModal = new bootstrap.Modal(document.getElementById('productModal'));
+    productModal.show();
 }
 
 async function toggleProductStatus(productId, active) {
