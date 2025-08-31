@@ -133,12 +133,25 @@
 let allProducts = [];
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Check if admin is logged in with better validation
-    const token = localStorage.getItem('adminToken');
+    // Enhanced token checking with multiple storage methods
+    let token = localStorage.getItem('adminToken') || sessionStorage.getItem('adminToken');
+    
+    console.log('=== ADMIN PRODUCTS PAGE LOADED ===');
+    console.log('localStorage token:', localStorage.getItem('adminToken') ? 'EXISTS' : 'MISSING');
+    console.log('sessionStorage token:', sessionStorage.getItem('adminToken') ? 'EXISTS' : 'MISSING');
+    console.log('Final token used:', token ? token.substring(0, 50) + '...' : 'NONE');
+    
     if (!token) {
-        console.log('No admin token found, redirecting to login');
+        console.log('No admin token found in any storage, redirecting to login');
+        alert('Kein gültiges Admin-Token gefunden. Bitte melden Sie sich an.');
         window.location.href = '/admin/login';
         return;
+    }
+    
+    // Store token in both locations if only found in one
+    if (token) {
+        localStorage.setItem('adminToken', token);
+        sessionStorage.setItem('adminToken', token);
     }
     
     // Validate token before proceeding
@@ -152,9 +165,21 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 async function validateTokenAndLoadProducts() {
-    const token = localStorage.getItem('adminToken');
+    const token = localStorage.getItem('adminToken') || sessionStorage.getItem('adminToken');
+    
+    console.log('=== TOKEN VALIDATION START ===');
+    console.log('Token to validate:', token ? token.substring(0, 50) + '...' : 'NONE');
+    
+    if (!token) {
+        console.log('No token available for validation');
+        alert('Kein Token für Validierung gefunden!');
+        window.location.href = '/admin/login';
+        return;
+    }
     
     try {
+        console.log('Sending validation request to /v1/auth/validate');
+        
         // First validate the token
         const validateResponse = await fetch('/v1/auth/validate', {
             headers: {
@@ -163,23 +188,37 @@ async function validateTokenAndLoadProducts() {
             }
         });
         
+        console.log('Validation response status:', validateResponse.status);
+        
         if (validateResponse.ok) {
             const result = await validateResponse.json();
+            console.log('Validation result:', result);
+            
             if (result.valid && result.user && result.user.role === 'admin') {
-                console.log('Admin token validated successfully');
+                console.log('Admin token validated successfully for user:', result.user.email);
                 loadProducts();
                 return;
+            } else {
+                console.log('Token validation failed - not valid admin token');
+                alert('Token ist ungültig oder Sie sind kein Admin!');
             }
+        } else {
+            const errorText = await validateResponse.text();
+            console.log('Validation response error:', errorText);
+            alert('Token-Validierung fehlgeschlagen: ' + validateResponse.status);
         }
         
         // Token invalid - remove and redirect
-        console.log('Token validation failed, redirecting to login');
+        console.log('Removing invalid token and redirecting to login');
         localStorage.removeItem('adminToken');
+        sessionStorage.removeItem('adminToken');
         window.location.href = '/admin/login';
         
     } catch (error) {
         console.error('Error validating token:', error);
+        alert('Netzwerkfehler bei Token-Validierung: ' + error.message);
         localStorage.removeItem('adminToken');
+        sessionStorage.removeItem('adminToken');
         window.location.href = '/admin/login';
     }
 }
@@ -418,12 +457,19 @@ function editProduct(productId) {
 async function handleProductSubmit(e) {
     e.preventDefault();
     
+    console.log('=== PRODUCT SUBMIT START ===');
+    
     const formData = new FormData(e.target);
-    const token = localStorage.getItem('adminToken');
+    let token = localStorage.getItem('adminToken') || sessionStorage.getItem('adminToken');
     const productId = formData.get('productId');
     
+    console.log('Form submit - Token exists:', !!token);
+    console.log('localStorage token:', localStorage.getItem('adminToken') ? 'EXISTS' : 'MISSING');
+    console.log('sessionStorage token:', sessionStorage.getItem('adminToken') ? 'EXISTS' : 'MISSING');
+    
     if (!token) {
-        console.log('No token in handleProductSubmit, redirecting to login');
+        console.log('CRITICAL: No token in handleProductSubmit, redirecting to login');
+        alert('FEHLER: Kein Admin-Token gefunden! Sie werden zur Anmeldung weitergeleitet.');
         window.location.href = '/admin/login';
         return;
     }

@@ -45,6 +45,10 @@
                 <button type="submit" class="btn btn-primary w-100">
                     <i class="bi bi-box-arrow-in-right"></i> Anmelden
                 </button>
+                
+                <button type="button" class="btn btn-outline-secondary w-100 mt-2" onclick="quickAdminLogin()">
+                    <i class="bi bi-lightning"></i> Schnell-Login (Admin)
+                </button>
             </form>
 
             <div class="text-center mt-4">
@@ -79,8 +83,21 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
         const result = await response.json();
         
         if (response.ok) {
+            console.log('Login successful, storing token:', result.token.substring(0, 50) + '...');
             localStorage.setItem('adminToken', result.token);
-            window.location.href = '/admin';
+            
+            // Double-check token was stored
+            const storedToken = localStorage.getItem('adminToken');
+            console.log('Token stored successfully:', !!storedToken);
+            console.log('Stored token length:', storedToken ? storedToken.length : 'N/A');
+            
+            // Add token to sessionStorage as backup
+            sessionStorage.setItem('adminToken', result.token);
+            
+            // Redirect with slight delay to ensure storage completes
+            setTimeout(() => {
+                window.location.href = '/admin';
+            }, 100);
         } else {
             const errorElement = document.getElementById('loginError');
             errorElement.textContent = result.message || 'Ungültige Anmeldedaten';
@@ -92,4 +109,16 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
         errorElement.classList.remove('d-none');
     }
 });
+
+function quickAdminLogin() {
+    console.log('=== QUICK ADMIN LOGIN ===');
+    
+    // Fill form with admin credentials
+    document.getElementById('email').value = 'admin@bcmarl.de';
+    document.getElementById('mobile').value = '01234567890';
+    document.getElementById('pin').value = '1234';
+    
+    // Submit form programmatically
+    document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+}
 </script>
