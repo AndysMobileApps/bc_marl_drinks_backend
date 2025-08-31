@@ -350,13 +350,25 @@ async function handleProductSubmit(e) {
             bootstrap.Modal.getInstance(document.getElementById('productModal')).hide();
             loadProducts();
         } else {
-            const error = await response.json();
-            alert('Fehler beim Speichern: ' + (error.message || 'Unbekannter Fehler'));
-            console.error('API Error:', error);
+            console.error('Response status:', response.status, response.statusText);
+            console.error('Response headers:', [...response.headers.entries()]);
+            
+            const responseText = await response.text();
+            console.error('Full response text:', responseText);
+            
+            try {
+                const error = JSON.parse(responseText);
+                alert('Fehler beim Speichern: ' + (error.message || 'Unbekannter Fehler'));
+                console.error('Parsed API Error:', error);
+            } catch (jsonError) {
+                console.error('Failed to parse JSON:', jsonError);
+                alert('Server-Fehler: Antwort ist kein gültiges JSON. Siehe Konsole für Details.');
+            }
         }
     } catch (error) {
-        console.error('Error saving product:', error);
-        alert('Fehler beim Speichern des Produkts: ' + error.message);
+        console.error('Network Error saving product:', error);
+        console.error('Error stack:', error.stack);
+        alert('Netzwerk-Fehler beim Speichern des Produkts: ' + error.message);
     }
 }
 
