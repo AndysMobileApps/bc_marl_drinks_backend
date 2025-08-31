@@ -11,9 +11,9 @@ abstract class BaseController
 {
     protected function jsonSuccess(Response $response, array $data, int $status = 200): Response
     {
-        $payload = json_encode(['success' => true] + $data);
+        $payload = json_encode(['success' => true] + $data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $response->getBody()->write($payload);
-        return $response->withHeader('Content-Type', 'application/json')->withStatus($status);
+        return $response->withHeader('Content-Type', 'application/json; charset=utf-8')->withStatus($status);
     }
 
     protected function jsonError(Response $response, string $error, string $message, int $status = 400): Response
@@ -22,9 +22,9 @@ abstract class BaseController
             'success' => false,
             'error' => $error,
             'message' => $message
-        ]);
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $response->getBody()->write($payload);
-        return $response->withHeader('Content-Type', 'application/json')->withStatus($status);
+        return $response->withHeader('Content-Type', 'application/json; charset=utf-8')->withStatus($status);
     }
 
     protected function getUserIdFromRequest(Request $request): ?string
@@ -64,3 +64,4 @@ abstract class BaseController
         return null;
     }
 }
+

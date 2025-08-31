@@ -9,7 +9,7 @@ use BCMarl\Drinks\Models\User;
 use BCMarl\Drinks\Services\AuthService;
 use BCMarl\Drinks\Services\JwtService;
 
-class AuthController
+class AuthController extends BaseController
 {
     public function firstLogin(Request $request, Response $response): Response
     {
@@ -162,23 +162,5 @@ class AuthController
         } catch (\Exception $e) {
             return $this->jsonError($response, 'INVALID_TOKEN', 'Invalid or expired token', 401);
         }
-    }
-
-    private function jsonSuccess(Response $response, array $data, int $status = 200): Response
-    {
-        $payload = json_encode(['success' => true] + $data);
-        $response->getBody()->write($payload);
-        return $response->withHeader('Content-Type', 'application/json')->withStatus($status);
-    }
-
-    private function jsonError(Response $response, string $error, string $message, int $status = 400): Response
-    {
-        $payload = json_encode([
-            'success' => false,
-            'error' => $error,
-            'message' => $message
-        ]);
-        $response->getBody()->write($payload);
-        return $response->withHeader('Content-Type', 'application/json')->withStatus($status);
     }
 }

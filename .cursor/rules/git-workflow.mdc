@@ -1,0 +1,14 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+Git workflow:
+
+* For new sections (feature/fix/bug): first update `main`. If there’s no change in `main`, check whether the MR has been merged. Always create a new branch.
+* After completing a section: commit, push, and always create an MR.
+* Never push to the `main` branch (consider protecting `main`).
+* Always have Cursor create the MR.
+* Commit and MR messages must always be short and precise.
+* For commit and MR message never use emojis, icons, graphics - never more than 5-10 lines.
+* Use only ASCII characters in Git messages and MR descriptions

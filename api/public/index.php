@@ -22,3 +22,4 @@ if ($_ENV['API_ENV'] === 'development') {
 // Start the application
 $app = new Application();
 $app->run();
+

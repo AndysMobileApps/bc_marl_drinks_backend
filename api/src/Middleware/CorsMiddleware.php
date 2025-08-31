@@ -23,3 +23,4 @@ class CorsMiddleware implements MiddlewareInterface
             ->withHeader('Access-Control-Allow-Credentials', 'true');
     }
 }
+

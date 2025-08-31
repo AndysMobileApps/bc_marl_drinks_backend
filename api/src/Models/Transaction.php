@@ -61,3 +61,4 @@ class Transaction extends Model
         return in_array($this->type, ['DEPOSIT', 'REVERSAL']);
     }
 }
+

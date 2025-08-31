@@ -183,3 +183,4 @@ Die API ist vollständig kompatibel mit der iOS App:
 - Identische API-Spezifikation  
 - JWT-Token Authentifizierung
 - CORS für mobile Apps konfiguriert
+
