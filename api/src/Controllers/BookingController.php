@@ -210,3 +210,4 @@ class BookingController extends BaseController
         ]);
     }
 }
+

@@ -1,17 +1,18 @@
 version: '3.8'
 
 services:
-  # PHP API Server
+  # PHP API Server with Apache
   api:
     build:
       context: ./api
       dockerfile: Dockerfile
     container_name: bcmarl_api
     ports:
+      - "80:80"
       - "8080:80"
     volumes:
       - ./api:/var/www/html
-      - ./logs:/var/log/php
+      - ./logs:/var/log/apache2
     environment:
       - DB_HOST=mysql
       - DB_NAME=bcmarl_drinks
@@ -56,23 +57,10 @@ services:
     networks:
       - bcmarl_network
 
-  # nginx reverse proxy (optional for production)
-  nginx:
-    image: nginx:alpine
-    container_name: bcmarl_nginx
-    ports:
-      - "80:80"
-    volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d
-      - ./api:/var/www/html
-    depends_on:
-      - api
-    networks:
-      - bcmarl_network
-
 volumes:
   mysql_data:
 
 networks:
   bcmarl_network:
     driver: bridge
+

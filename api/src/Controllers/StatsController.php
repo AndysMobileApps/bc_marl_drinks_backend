@@ -148,3 +148,4 @@ class StatsController extends BaseController
         ]);
     }
 }
+

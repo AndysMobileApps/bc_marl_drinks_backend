@@ -14,11 +14,12 @@ class JsonResponseMiddleware implements MiddlewareInterface
     {
         $response = $handler->handle($request);
         
-        // Add JSON content type if not already set
+        // Add JSON content type with UTF-8 charset if not already set
         if (!$response->hasHeader('Content-Type')) {
-            $response = $response->withHeader('Content-Type', 'application/json');
+            $response = $response->withHeader('Content-Type', 'application/json; charset=utf-8');
         }
         
         return $response;
     }
 }
+
