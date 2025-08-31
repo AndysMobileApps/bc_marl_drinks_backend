@@ -157,19 +157,22 @@ document.addEventListener('DOMContentLoaded', function() {
     // Validate token before proceeding
     validateTokenAndLoadProducts();
     
-    // Enhanced form event handling
+    // ONLY use button-based submission to prevent double execution
     const productForm = document.getElementById('productForm');
     if (productForm) {
-        console.log('Registering form submit handler');
-        productForm.addEventListener('submit', handleProductSubmit);
+        console.log('Setting up form to prevent default submission');
         
-        // Also prevent default form submission behavior
+        // Completely prevent form submission
         productForm.onsubmit = function(e) {
-            console.log('Form onsubmit triggered');
+            console.log('Form onsubmit prevented');
             e.preventDefault();
-            handleProductSubmit(e);
             return false;
         };
+        
+        // Remove any submit buttons and only use our custom button
+        const submitButtons = productForm.querySelectorAll('button[type="submit"]');
+        submitButtons.forEach(btn => btn.type = 'button');
+        
     } else {
         console.error('Product form not found!');
     }
@@ -469,21 +472,41 @@ function editProduct(productId) {
     }
 }
 
+// Simplified submit handler - no longer used
 async function handleProductSubmit(e) {
     e.preventDefault();
+    console.log('=== OLD SUBMIT HANDLER BLOCKED ===');
+    return false;
+}
+
+// Direct submit method triggered by button click (no form events)
+async function submitProductForm() {
+    console.log('=== SUBMIT PRODUCT FORM (BUTTON CLICK) ===');
     
-    console.log('=== PRODUCT SUBMIT START ===');
-    console.log('Event target:', e.target);
-    console.log('Form element:', document.getElementById('productForm'));
+    const form = document.getElementById('productForm');
+    if (!form) {
+        console.error('Product form not found for submission');
+        return;
+    }
     
-    // Prevent any additional form submissions
-    const submitButton = e.target.querySelector('button[type="submit"]');
+    // Create manual form data from form elements
+    const formData = new FormData(form);
+    
+    // Call our handler directly (no event needed)
+    await handleProductFormData(formData);
+}
+
+// Separate function to handle the actual submission logic
+async function handleProductFormData(formData) {
+    console.log('=== PRODUCT FORM DATA HANDLING START ===');
+    
+    // Find and disable submit button
+    const submitButton = document.querySelector('#productModal button[onclick="submitProductForm()"]');
     if (submitButton) {
         submitButton.disabled = true;
         submitButton.textContent = 'Speichere...';
     }
     
-    const formData = new FormData(e.target);
     let token = localStorage.getItem('adminToken') || sessionStorage.getItem('adminToken');
     const productId = formData.get('productId');
     
@@ -492,7 +515,7 @@ async function handleProductSubmit(e) {
     console.log('sessionStorage token:', sessionStorage.getItem('adminToken') ? 'EXISTS' : 'MISSING');
     
     if (!token) {
-        console.log('CRITICAL: No token in handleProductSubmit');
+        console.log('CRITICAL: No token in handleProductFormData');
         alert('FEHLER: Kein Admin-Token gefunden!');
         if (submitButton) {
             submitButton.disabled = false;
@@ -580,7 +603,7 @@ async function handleProductSubmit(e) {
         console.log('API response status:', response.status, response.statusText);
         
         if (response.status === 401) {
-            console.log('401 Unauthorized in handleProductSubmit, clearing token');
+            console.log('401 Unauthorized in handleProductFormData, clearing token');
             alert('DEBUGGING: 401 Unauthorized - Token ist abgelaufen!');
             localStorage.removeItem('adminToken');
             sessionStorage.removeItem('adminToken');
@@ -633,6 +656,12 @@ async function handleProductSubmit(e) {
                 console.error('Failed to parse JSON:', jsonError);
                 alert('Server-Fehler: Antwort ist kein gültiges JSON. Siehe Konsole für Details.');
             }
+            
+            // Re-enable button
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Speichern';
+            }
         }
     } catch (error) {
         console.error('Network Error saving product:', error);
@@ -648,19 +677,6 @@ async function handleProductSubmit(e) {
     
     // Ensure we never redirect accidentally
     return false;
-}
-
-// Alternative submit method triggered by button click
-function submitProductForm() {
-    console.log('=== SUBMIT PRODUCT FORM (BUTTON CLICK) ===');
-    
-    const form = document.getElementById('productForm');
-    if (form) {
-        const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
-        form.dispatchEvent(submitEvent);
-    } else {
-        console.error('Product form not found for submission');
-    }
 }
 
 function handleIconFileChange(e) {
