@@ -77,10 +77,6 @@
                                 <img id="iconPreview" src="" alt="Icon Vorschau" class="img-thumbnail" style="display: none; max-height: 64px;">
                             </div>
                         </div>
-                        <div class="mt-2">
-                            <small class="text-muted">Oder Icon-Pfad eingeben:</small>
-                            <input type="text" class="form-control form-control-sm" id="productIcon" name="icon" placeholder="/images/icons/beer.svg">
-                        </div>
                     </div>
                     
                     <div class="row">
@@ -283,7 +279,6 @@ function openProductModal(product = null) {
     if (product) {
         document.getElementById('productId').value = product.id;
         document.getElementById('productName').value = product.name;
-        document.getElementById('productIcon').value = product.icon;
         document.getElementById('productPrice').value = product.priceCents / 100;
         document.getElementById('productCategory').value = product.category;
         document.getElementById('productActive').checked = product.active;
@@ -329,7 +324,7 @@ async function submitProductForm() {
     }
     
     try {
-        let iconPath = formData.get('icon');
+        let iconPath = null; // Will be set by file upload or remain null for default
         
         // Handle file upload if needed
         const iconFile = formData.get('iconFile');
@@ -352,11 +347,15 @@ async function submitProductForm() {
         // Create/update product
         const productData = {
             name: formData.get('name'),
-            icon: iconPath,
             priceCents: Math.round(parseFloat(formData.get('price')) * 100),
             category: formData.get('category'),
             active: formData.has('active')
         };
+        
+        // Add icon path only if we have one (from upload or existing)
+        if (iconPath) {
+            productData.icon = iconPath;
+        }
         
         const url = productId ? `/v1/admin/products/${productId}` : '/v1/admin/products';
         const response = await fetch(url, {
@@ -422,8 +421,7 @@ function handleIconFileChange(e) {
         };
         reader.readAsDataURL(file);
         
-        // Clear icon path field when file is selected
-        document.getElementById('productIcon').value = '';
+        // Icon file selected - path field is no longer needed
     } else {
         preview.style.display = 'none';
     }
