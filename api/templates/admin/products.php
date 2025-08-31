@@ -520,43 +520,62 @@ async function handleProductSubmit(e) {
         let response;
         let url;
         
+        // ALWAYS use JSON submission for now (multipart has middleware issues)
+        url = productId ? `/v1/admin/products/${productId}` : '/v1/admin/products';
+        
+        let iconPath = formData.get('icon'); // Default to existing icon path
+        
+        // Handle file upload separately if needed
         if (hasIconFile) {
-            // Use multipart form submission for file upload
-            url = productId ? `/v1/admin/products/${productId}/with-icon` : '/v1/admin/products/with-icon';
-            formData.set('price', formData.get('price')); // Keep price as string for backend conversion
+            console.log('File upload detected, uploading icon first...');
             
-            console.log('Using multipart upload to:', url);
+            // First upload the icon separately
+            const iconFormData = new FormData();
+            iconFormData.append('iconFile', iconFile);
             
-            response = await fetch(url, {
-                method: productId ? 'PATCH' : 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                },
-                body: formData
-            });
-        } else {
-            // Use JSON submission for regular updates
-            url = productId ? `/v1/admin/products/${productId}` : '/v1/admin/products';
-            const productData = {
-                name: formData.get('name'),
-                icon: formData.get('icon'),
-                priceCents: Math.round(parseFloat(formData.get('price')) * 100),
-                category: formData.get('category'),
-                active: formData.has('active')
-            };
-            
-            console.log('Using JSON submission to:', url);
-            console.log('Product data:', productData);
-            
-            response = await fetch(url, {
-                method: productId ? 'PATCH' : 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(productData)
-            });
+            try {
+                const iconResponse = await fetch('/v1/admin/products/upload-icon', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: iconFormData
+                });
+                
+                if (iconResponse.ok) {
+                    const iconResult = await iconResponse.json();
+                    iconPath = iconResult.iconPath;
+                    console.log('Icon uploaded successfully:', iconPath);
+                } else {
+                    console.error('Icon upload failed:', iconResponse.status);
+                    alert('Icon-Upload fehlgeschlagen. Produkt wird ohne Icon gespeichert.');
+                }
+            } catch (iconError) {
+                console.error('Icon upload error:', iconError);
+                alert('Icon-Upload-Fehler: ' + iconError.message);
+            }
         }
+        
+        // Now create/update product with JSON (which works)
+        const productData = {
+            name: formData.get('name'),
+            icon: iconPath,
+            priceCents: Math.round(parseFloat(formData.get('price')) * 100),
+            category: formData.get('category'),
+            active: formData.has('active')
+        };
+        
+        console.log('Using JSON submission to:', url);
+        console.log('Product data:', productData);
+        
+        response = await fetch(url, {
+            method: productId ? 'PATCH' : 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(productData)
+        });
         
         console.log('API response status:', response.status, response.statusText);
         
