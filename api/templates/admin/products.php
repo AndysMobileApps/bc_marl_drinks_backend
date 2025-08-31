@@ -40,11 +40,35 @@
 
 
 
-<!-- Products Grid -->
-<div class="row" id="productsGrid">
-    <div class="col-12 text-center">
-        <div class="spinner-border" role="status">
-            <span class="visually-hidden">Lädt...</span>
+<!-- Products Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th width="64">Icon</th>
+                                <th>Name</th>
+                                <th>Kategorie</th>
+                                <th>Preis</th>
+                                <th>Status</th>
+                                <th width="120">Aktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productsTableBody">
+                            <tr>
+                                <td colspan="6" class="text-center">
+                                    <div class="spinner-border" role="status">
+                                        <span class="visually-hidden">Lädt...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -182,58 +206,49 @@ async function loadProducts() {
 
 
 function displayProducts(products) {
-    const grid = document.getElementById('productsGrid');
+    const tbody = document.getElementById('productsTableBody');
     
     if (products.length === 0) {
-        grid.innerHTML = '<div class="col-12 text-center text-muted">Keine Produkte gefunden</div>';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Keine Produkte gefunden</td></tr>';
         return;
     }
     
-    grid.innerHTML = products.map(product => `
-        <div class="col-md-6 col-lg-4 mb-4">
-            <div class="card h-100 ${product.active ? '' : 'opacity-75'}">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start mb-3">
-                        <div><img src="${product.icon}" alt="${product.name}" width="48" height="48" class="rounded"></div>
-                        <div class="dropdown">
-                            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown">
-                                <i class="bi bi-three-dots-vertical"></i>
-                            </button>
-                            <ul class="dropdown-menu">
-                                <li><a class="dropdown-item" href="#" onclick="editProduct('${product.id}')">
-                                    <i class="bi bi-pencil"></i> Bearbeiten
-                                </a></li>
-                                <li><a class="dropdown-item" href="#" onclick="toggleProductStatus('${product.id}', ${!product.active})">
-                                    <i class="bi bi-${product.active ? 'eye-slash' : 'eye'}"></i> 
-                                    ${product.active ? 'Deaktivieren' : 'Aktivieren'}
-                                </a></li>
-                            </ul>
-                        </div>
-                    </div>
-                    
-                    <h5 class="card-title">${product.name}</h5>
-                    
-                    <div class="mb-2">
-                        <span class="badge bg-secondary">${getCategoryLabel(product.category)}</span>
-                        <span class="badge bg-${product.active ? 'success' : 'warning'}">
-                            ${product.active ? 'Aktiv' : 'Inaktiv'}
-                        </span>
-                    </div>
-                    
-                    <div class="text-end">
-                        <span class="h5 text-primary">
-                            ${new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(product.priceCents / 100)}
-                        </span>
-                    </div>
+    tbody.innerHTML = products.map(product => `
+        <tr class="${product.active ? '' : 'table-secondary'}">
+            <td>
+                <img src="${product.icon}" alt="${product.name}" width="48" height="48" class="rounded">
+            </td>
+            <td>
+                <div class="fw-semibold">${product.name}</div>
+                <small class="text-muted">ID: ${product.id.substring(0, 8)}...</small>
+            </td>
+            <td>
+                <span class="badge bg-secondary">${getCategoryLabel(product.category)}</span>
+            </td>
+            <td>
+                <span class="fw-bold text-primary">
+                    ${new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(product.priceCents / 100)}
+                </span>
+            </td>
+            <td>
+                <span class="badge bg-${product.active ? 'success' : 'warning'}">
+                    <i class="bi bi-${product.active ? 'check-circle' : 'pause-circle'}"></i>
+                    ${product.active ? 'Aktiv' : 'Inaktiv'}
+                </span>
+            </td>
+            <td>
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="editProduct('${product.id}')" title="Bearbeiten">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-${product.active ? 'warning' : 'success'}" 
+                            onclick="toggleProductStatus('${product.id}', ${!product.active})" 
+                            title="${product.active ? 'Deaktivieren' : 'Aktivieren'}">
+                        <i class="bi bi-${product.active ? 'eye-slash' : 'eye'}"></i>
+                    </button>
                 </div>
-                
-                <div class="card-footer bg-transparent">
-                    <small class="text-muted">
-                        Erstellt: ${new Date(product.createdAt).toLocaleDateString('de-DE')}
-                    </small>
-                </div>
-            </div>
-        </div>
+            </td>
+        </tr>
     `).join('');
 }
 
