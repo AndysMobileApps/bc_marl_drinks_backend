@@ -51,7 +51,7 @@ abstract class BaseController
 
     protected function generateUuid(): string
     {
-        return Uuid::uuid4()->toString();
+        return \Ramsey\Uuid\Uuid::uuid4()->toString();
     }
 
     protected function validateRequired(array $data, array $required): ?string

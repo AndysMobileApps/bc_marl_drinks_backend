@@ -7,6 +7,7 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use BCMarl\Drinks\Models\Product;
 use BCMarl\Drinks\Models\Favorite;
+use BCMarl\Drinks\Services\ImageService;
 
 class ProductController extends BaseController
 {
@@ -116,12 +117,17 @@ class ProductController extends BaseController
         // Admin only - would be checked by middleware
         $data = $request->getParsedBody();
         
+        if ($error = $this->validateRequired($data, ['name', 'priceCents', 'category'])) {
+            return $this->jsonError($response, 'MISSING_FIELDS', $error, 400);
+        }
+        
         $product = Product::create([
             'id' => $this->generateUuid(),
             'name' => $data['name'],
-            'icon' => $data['icon'],
-            'priceCents' => $data['priceCents'],
-            'category' => $data['category']
+            'icon' => $data['icon'] ?? '/images/icons/default.svg',
+            'priceCents' => (int)$data['priceCents'],
+            'category' => $data['category'],
+            'active' => $data['active'] ?? true
         ]);
         
         return $this->jsonSuccess($response, [
@@ -139,6 +145,123 @@ class ProductController extends BaseController
         
         if (!$product) {
             return $this->jsonError($response, 'PRODUCT_NOT_FOUND', 'Product not found', 404);
+        }
+        
+        $product->update($data);
+        
+        return $this->jsonSuccess($response, [
+            'product' => $product->fresh()->toArray()
+        ]);
+    }
+
+    public function uploadIcon(Request $request, Response $response): Response
+    {
+        // Admin only
+        $uploadedFiles = $request->getUploadedFiles();
+        
+        if (!isset($uploadedFiles['iconFile'])) {
+            return $this->jsonError($response, 'NO_FILE', 'No icon file uploaded', 400);
+        }
+        
+        $uploadedFile = $uploadedFiles['iconFile'];
+        
+        try {
+            $imageService = new ImageService();
+            $iconPath = $imageService->uploadProductIcon($uploadedFile);
+            
+            return $this->jsonSuccess($response, [
+                'iconPath' => $iconPath,
+                'message' => 'Icon uploaded successfully'
+            ]);
+            
+        } catch (\InvalidArgumentException $e) {
+            return $this->jsonError($response, 'INVALID_FILE', $e->getMessage(), 400);
+        } catch (\Exception $e) {
+            return $this->jsonError($response, 'UPLOAD_FAILED', 'Failed to upload icon: ' . $e->getMessage(), 500);
+        }
+    }
+
+    public function createProductWithIcon(Request $request, Response $response): Response
+    {
+        // Admin only - would be checked by middleware
+        $data = $request->getParsedBody() ?? [];
+        $uploadedFiles = $request->getUploadedFiles();
+        
+        // Handle icon upload if provided
+        $iconPath = '/images/icons/default.svg';
+        if (isset($uploadedFiles['iconFile'])) {
+            try {
+                $imageService = new ImageService();
+                $iconPath = $imageService->uploadProductIcon($uploadedFiles['iconFile']);
+            } catch (\Exception $e) {
+                return $this->jsonError($response, 'ICON_UPLOAD_FAILED', $e->getMessage(), 400);
+            }
+        } elseif (!empty($data['icon'])) {
+            $iconPath = $data['icon'];
+        }
+        
+        // Convert price to cents if provided as euro
+        $priceCents = isset($data['price']) ? (int)((float)$data['price'] * 100) : 
+                     (isset($data['priceCents']) ? (int)$data['priceCents'] : 0);
+        
+        // Validate required fields
+        $requiredData = [
+            'name' => $data['name'] ?? '',
+            'priceCents' => $priceCents,
+            'category' => $data['category'] ?? ''
+        ];
+        
+        if ($error = $this->validateRequired($requiredData, ['name', 'priceCents', 'category'])) {
+            return $this->jsonError($response, 'MISSING_FIELDS', $error, 400);
+        }
+        
+        $product = Product::create([
+            'id' => $this->generateUuid(),
+            'name' => $data['name'],
+            'icon' => $iconPath,
+            'priceCents' => $priceCents,
+            'category' => $data['category'],
+            'active' => isset($data['active']) ? (bool)$data['active'] : true
+        ]);
+        
+        return $this->jsonSuccess($response, [
+            'product' => $product->toArray()
+        ], 201);
+    }
+
+    public function updateProductWithIcon(Request $request, Response $response): Response
+    {
+        // Admin only - would be checked by middleware
+        $productId = $request->getAttribute('id');
+        $data = $request->getParsedBody() ?? [];
+        $uploadedFiles = $request->getUploadedFiles();
+        
+        $product = Product::find($productId);
+        
+        if (!$product) {
+            return $this->jsonError($response, 'PRODUCT_NOT_FOUND', 'Product not found', 404);
+        }
+        
+        // Handle icon upload if provided
+        if (isset($uploadedFiles['iconFile'])) {
+            try {
+                $imageService = new ImageService();
+                
+                // Delete old icon if it's an uploaded file (not a default icon)
+                if ($product->icon && str_contains($product->icon, '/uploads/')) {
+                    $imageService->deleteFile($product->icon);
+                }
+                
+                $data['icon'] = $imageService->uploadProductIcon($uploadedFiles['iconFile']);
+            } catch (\Exception $e) {
+                return $this->jsonError($response, 'ICON_UPLOAD_FAILED', $e->getMessage(), 400);
+            }
+        }
+        
+        // Convert price to cents if provided as euro
+        if (isset($data['price'])) {
+            $data['priceCents'] = (int)($data['price'] * 100);
+            unset($data['price']);
         }
         
         $product->update($data);
