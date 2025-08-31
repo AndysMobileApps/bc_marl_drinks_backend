@@ -1,0 +1,48 @@
+# Environment files
+.env
+.env.local
+.env.production
+
+# Composer
+/api/vendor/
+/api/composer.phar
+
+# Logs
+/logs/*.log
+/api/logs/*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.docker/
+
+# PHP
+*.cache
+/api/bootstrap/cache/
+
+# MySQL data (if using local volume)
+/mysql/data/
+
+# Backup files
+*.bak
+*.backup
+
+# Node modules (if using frontend build tools)
+node_modules/
+npm-debug.log*
+
+# Test output
+/api/tests/reports/
+coverage/
+
+# Temporary files
+tmp/
+temp/

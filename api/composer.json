@@ -1,0 +1,43 @@
+{
+    "name": "bcmarl/drinks-api",
+    "description": "BC Marl Drinks Vereins-Snack-App REST API",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": "^8.2",
+        "slim/slim": "^4.12",
+        "slim/psr7": "^1.6",
+        "psr/http-message": "^1.1",
+        "psr/http-server-handler": "^1.0",
+        "psr/http-server-middleware": "^1.0",
+        "illuminate/database": "^10.0",
+        "firebase/php-jwt": "^6.8",
+        "tuupola/cors-middleware": "^1.4",
+        "monolog/monolog": "^3.4",
+        "vlucas/phpdotenv": "^5.5",
+        "respect/validation": "^2.2"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.0",
+        "phpstan/phpstan": "^1.10"
+    },
+    "autoload": {
+        "psr-4": {
+            "BCMarl\\Drinks\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "BCMarl\\Drinks\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "start": "php -S localhost:8080 -t public",
+        "test": "phpunit",
+        "analyse": "phpstan analyse src"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    }
+}

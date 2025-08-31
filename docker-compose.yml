@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  # PHP API Server
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: bcmarl_api
+    ports:
+      - "8080:80"
+    volumes:
+      - ./api:/var/www/html
+      - ./logs:/var/log/php
+    environment:
+      - DB_HOST=mysql
+      - DB_NAME=bcmarl_drinks
+      - DB_USER=bcmarl_user
+      - DB_PASS=bcmarl_pass_2025
+      - JWT_SECRET=bc_marl_jwt_secret_key_2025_very_secure
+      - API_ENV=development
+    depends_on:
+      - mysql
+    networks:
+      - bcmarl_network
+
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: bcmarl_mysql
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root_password_2025
+      - MYSQL_DATABASE=bcmarl_drinks
+      - MYSQL_USER=bcmarl_user
+      - MYSQL_PASSWORD=bcmarl_pass_2025
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d
+    networks:
+      - bcmarl_network
+
+  # phpMyAdmin for database management
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: bcmarl_phpmyadmin
+    ports:
+      - "8081:80"
+    environment:
+      - PMA_HOST=mysql
+      - PMA_USER=bcmarl_user
+      - PMA_PASSWORD=bcmarl_pass_2025
+    depends_on:
+      - mysql
+    networks:
+      - bcmarl_network
+
+  # nginx reverse proxy (optional for production)
+  nginx:
+    image: nginx:alpine
+    container_name: bcmarl_nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./api:/var/www/html
+    depends_on:
+      - api
+    networks:
+      - bcmarl_network
+
+volumes:
+  mysql_data:
+
+networks:
+  bcmarl_network:
+    driver: bridge
