@@ -121,6 +121,13 @@
 let allProducts = [];
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Check if admin is logged in
+    const token = localStorage.getItem('adminToken');
+    if (!token) {
+        window.location.href = '/admin/login';
+        return;
+    }
+    
     loadProducts();
     
     document.getElementById('productForm').addEventListener('submit', handleProductSubmit);
@@ -133,6 +140,11 @@ document.addEventListener('DOMContentLoaded', function() {
 async function loadProducts() {
     const token = localStorage.getItem('adminToken');
     
+    if (!token) {
+        window.location.href = '/admin/login';
+        return;
+    }
+    
     try {
         const response = await fetch('/v1/products', {
             headers: {
@@ -141,10 +153,18 @@ async function loadProducts() {
             }
         });
         
+        if (response.status === 401) {
+            localStorage.removeItem('adminToken');
+            window.location.href = '/admin/login';
+            return;
+        }
+        
         if (response.ok) {
             const result = await response.json();
             allProducts = result.products || [];
             displayProducts(allProducts);
+        } else {
+            console.error('Error loading products:', response.status, response.statusText);
         }
     } catch (error) {
         console.error('Error loading products:', error);
@@ -277,6 +297,11 @@ async function handleProductSubmit(e) {
     const token = localStorage.getItem('adminToken');
     const productId = formData.get('productId');
     
+    if (!token) {
+        window.location.href = '/admin/login';
+        return;
+    }
+    
     // Check if a file is being uploaded
     const iconFile = formData.get('iconFile');
     const hasIconFile = iconFile && iconFile.size > 0;
@@ -315,16 +340,23 @@ async function handleProductSubmit(e) {
             });
         }
         
+        if (response.status === 401) {
+            localStorage.removeItem('adminToken');
+            window.location.href = '/admin/login';
+            return;
+        }
+        
         if (response.ok) {
             bootstrap.Modal.getInstance(document.getElementById('productModal')).hide();
             loadProducts();
         } else {
             const error = await response.json();
             alert('Fehler beim Speichern: ' + (error.message || 'Unbekannter Fehler'));
+            console.error('API Error:', error);
         }
     } catch (error) {
         console.error('Error saving product:', error);
-        alert('Fehler beim Speichern des Produkts');
+        alert('Fehler beim Speichern des Produkts: ' + error.message);
     }
 }
 

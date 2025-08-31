@@ -124,7 +124,7 @@ class ProductController extends BaseController
         $product = Product::create([
             'id' => $this->generateUuid(),
             'name' => $data['name'],
-            'icon' => $data['icon'] ?? '/images/icons/default.png',
+            'icon' => $data['icon'] ?? '/images/icons/default.svg',
             'priceCents' => (int)$data['priceCents'],
             'category' => $data['category'],
             'active' => $data['active'] ?? true
@@ -188,7 +188,7 @@ class ProductController extends BaseController
         $uploadedFiles = $request->getUploadedFiles();
         
         // Handle icon upload if provided
-        $iconPath = '/images/icons/default.png';
+        $iconPath = '/images/icons/default.svg';
         if (isset($uploadedFiles['iconFile'])) {
             try {
                 $imageService = new ImageService();
