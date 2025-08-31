@@ -159,11 +159,11 @@ class ProductController extends BaseController
         // Admin only
         $uploadedFiles = $request->getUploadedFiles();
         
-        if (!isset($uploadedFiles['icon'])) {
+        if (!isset($uploadedFiles['iconFile'])) {
             return $this->jsonError($response, 'NO_FILE', 'No icon file uploaded', 400);
         }
         
-        $uploadedFile = $uploadedFiles['icon'];
+        $uploadedFile = $uploadedFiles['iconFile'];
         
         try {
             $imageService = new ImageService();
@@ -189,10 +189,10 @@ class ProductController extends BaseController
         
         // Handle icon upload if provided
         $iconPath = '/images/icons/default.png';
-        if (isset($uploadedFiles['icon'])) {
+        if (isset($uploadedFiles['iconFile'])) {
             try {
                 $imageService = new ImageService();
-                $iconPath = $imageService->uploadProductIcon($uploadedFiles['icon']);
+                $iconPath = $imageService->uploadProductIcon($uploadedFiles['iconFile']);
             } catch (\Exception $e) {
                 return $this->jsonError($response, 'ICON_UPLOAD_FAILED', $e->getMessage(), 400);
             }
@@ -200,7 +200,18 @@ class ProductController extends BaseController
             $iconPath = $data['icon'];
         }
         
-        if ($error = $this->validateRequired($data, ['name', 'priceCents', 'category'])) {
+        // Convert price to cents if provided as euro
+        $priceCents = isset($data['price']) ? (int)((float)$data['price'] * 100) : 
+                     (isset($data['priceCents']) ? (int)$data['priceCents'] : 0);
+        
+        // Validate required fields
+        $requiredData = [
+            'name' => $data['name'] ?? '',
+            'priceCents' => $priceCents,
+            'category' => $data['category'] ?? ''
+        ];
+        
+        if ($error = $this->validateRequired($requiredData, ['name', 'priceCents', 'category'])) {
             return $this->jsonError($response, 'MISSING_FIELDS', $error, 400);
         }
         
@@ -208,7 +219,7 @@ class ProductController extends BaseController
             'id' => $this->generateUuid(),
             'name' => $data['name'],
             'icon' => $iconPath,
-            'priceCents' => (int)$data['priceCents'],
+            'priceCents' => $priceCents,
             'category' => $data['category'],
             'active' => isset($data['active']) ? (bool)$data['active'] : true
         ]);
@@ -232,7 +243,7 @@ class ProductController extends BaseController
         }
         
         // Handle icon upload if provided
-        if (isset($uploadedFiles['icon'])) {
+        if (isset($uploadedFiles['iconFile'])) {
             try {
                 $imageService = new ImageService();
                 
@@ -241,7 +252,7 @@ class ProductController extends BaseController
                     $imageService->deleteFile($product->icon);
                 }
                 
-                $data['icon'] = $imageService->uploadProductIcon($uploadedFiles['icon']);
+                $data['icon'] = $imageService->uploadProductIcon($uploadedFiles['iconFile']);
             } catch (\Exception $e) {
                 return $this->jsonError($response, 'ICON_UPLOAD_FAILED', $e->getMessage(), 400);
             }
