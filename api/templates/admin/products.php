@@ -122,7 +122,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
-                    <button type="submit" class="btn btn-primary">Speichern</button>
+                    <button type="button" class="btn btn-primary" onclick="submitProductForm()">Speichern</button>
                 </div>
             </form>
         </div>
@@ -157,7 +157,22 @@ document.addEventListener('DOMContentLoaded', function() {
     // Validate token before proceeding
     validateTokenAndLoadProducts();
     
-    document.getElementById('productForm').addEventListener('submit', handleProductSubmit);
+    // Enhanced form event handling
+    const productForm = document.getElementById('productForm');
+    if (productForm) {
+        console.log('Registering form submit handler');
+        productForm.addEventListener('submit', handleProductSubmit);
+        
+        // Also prevent default form submission behavior
+        productForm.onsubmit = function(e) {
+            console.log('Form onsubmit triggered');
+            e.preventDefault();
+            handleProductSubmit(e);
+            return false;
+        };
+    } else {
+        console.error('Product form not found!');
+    }
     document.getElementById('searchProducts').addEventListener('input', filterProducts);
     document.getElementById('categoryFilter').addEventListener('change', filterProducts);
     document.getElementById('statusFilter').addEventListener('change', filterProducts);
@@ -458,6 +473,15 @@ async function handleProductSubmit(e) {
     e.preventDefault();
     
     console.log('=== PRODUCT SUBMIT START ===');
+    console.log('Event target:', e.target);
+    console.log('Form element:', document.getElementById('productForm'));
+    
+    // Prevent any additional form submissions
+    const submitButton = e.target.querySelector('button[type="submit"]');
+    if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = 'Speichere...';
+    }
     
     const formData = new FormData(e.target);
     let token = localStorage.getItem('adminToken') || sessionStorage.getItem('adminToken');
@@ -468,10 +492,13 @@ async function handleProductSubmit(e) {
     console.log('sessionStorage token:', sessionStorage.getItem('adminToken') ? 'EXISTS' : 'MISSING');
     
     if (!token) {
-        console.log('CRITICAL: No token in handleProductSubmit, redirecting to login');
-        alert('FEHLER: Kein Admin-Token gefunden! Sie werden zur Anmeldung weitergeleitet.');
-        window.location.href = '/admin/login';
-        return;
+        console.log('CRITICAL: No token in handleProductSubmit');
+        alert('FEHLER: Kein Admin-Token gefunden!');
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Speichern';
+        }
+        return false;
     }
     
     console.log('Submitting product with token:', token.substring(0, 50) + '...');
@@ -535,16 +562,43 @@ async function handleProductSubmit(e) {
         
         if (response.status === 401) {
             console.log('401 Unauthorized in handleProductSubmit, clearing token');
+            alert('DEBUGGING: 401 Unauthorized - Token ist abgelaufen!');
             localStorage.removeItem('adminToken');
-            window.location.href = '/admin/login';
-            return;
+            sessionStorage.removeItem('adminToken');
+            
+            // Re-enable button before redirect
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Speichern';
+            }
+            
+            setTimeout(() => {
+                window.location.href = '/admin/login';
+            }, 2000);
+            return false;
         }
         
         if (response.ok) {
             const result = await response.json();
             console.log('Product saved successfully:', result);
-            bootstrap.Modal.getInstance(document.getElementById('productModal')).hide();
-            loadProducts();
+            
+            // Re-enable button
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Speichern';
+            }
+            
+            // Close modal and reload
+            const modalInstance = bootstrap.Modal.getInstance(document.getElementById('productModal'));
+            if (modalInstance) {
+                modalInstance.hide();
+            }
+            
+            // Reload products without page redirect
+            setTimeout(() => {
+                loadProducts();
+            }, 500);
+            
         } else {
             console.error('Response status:', response.status, response.statusText);
             console.error('Response headers:', [...response.headers.entries()]);
@@ -565,6 +619,28 @@ async function handleProductSubmit(e) {
         console.error('Network Error saving product:', error);
         console.error('Error stack:', error.stack);
         alert('Netzwerk-Fehler beim Speichern des Produkts: ' + error.message);
+        
+        // Re-enable button
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Speichern';
+        }
+    }
+    
+    // Ensure we never redirect accidentally
+    return false;
+}
+
+// Alternative submit method triggered by button click
+function submitProductForm() {
+    console.log('=== SUBMIT PRODUCT FORM (BUTTON CLICK) ===');
+    
+    const form = document.getElementById('productForm');
+    if (form) {
+        const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+        form.dispatchEvent(submitEvent);
+    } else {
+        console.error('Product form not found for submission');
     }
 }
 
