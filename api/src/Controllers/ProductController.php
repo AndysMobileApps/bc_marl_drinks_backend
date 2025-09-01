@@ -154,6 +154,112 @@ class ProductController extends BaseController
         ]);
     }
 
+    public function deleteProduct(Request $request, Response $response): Response
+    {
+        // Admin only - would be checked by middleware
+        $productId = $request->getAttribute('id');
+        
+        $product = Product::find($productId);
+        
+        if (!$product) {
+            return $this->jsonError($response, 'PRODUCT_NOT_FOUND', 'Product not found', 404);
+        }
+        
+        // Check if product has bookings
+        $hasBookings = $product->bookings()->exists();
+        if ($hasBookings) {
+            return $this->jsonError($response, 'PRODUCT_HAS_BOOKINGS', 'Cannot delete product with existing bookings', 409);
+        }
+        
+        // Delete uploaded icon if exists
+        if ($product->icon && str_contains($product->icon, '/uploads/')) {
+            $imageService = new ImageService();
+            $imageService->deleteFile($product->icon);
+        }
+        
+        $product->delete();
+        
+        return $this->jsonSuccess($response, [
+            'message' => 'Product deleted successfully'
+        ]);
+    }
+
+    public function bulkUpdateProducts(Request $request, Response $response): Response
+    {
+        // Admin only - would be checked by middleware
+        $data = $request->getParsedBody();
+        
+        if ($error = $this->validateRequired($data, ['productIds', 'action'])) {
+            return $this->jsonError($response, 'MISSING_FIELDS', $error, 400);
+        }
+        
+        $productIds = $data['productIds'];
+        $action = $data['action'];
+        
+        if (!is_array($productIds) || empty($productIds)) {
+            return $this->jsonError($response, 'INVALID_PRODUCT_IDS', 'Product IDs must be a non-empty array', 400);
+        }
+        
+        $validActions = ['activate', 'deactivate', 'delete'];
+        if (!in_array($action, $validActions, true)) {
+            return $this->jsonError($response, 'INVALID_ACTION', 'Action must be one of: ' . implode(', ', $validActions), 400);
+        }
+        
+        $products = Product::whereIn('id', $productIds)->get();
+        
+        if ($products->count() !== count($productIds)) {
+            return $this->jsonError($response, 'PRODUCTS_NOT_FOUND', 'Some products were not found', 404);
+        }
+        
+        $updated = 0;
+        $errors = [];
+        
+        foreach ($products as $product) {
+            try {
+                switch ($action) {
+                    case 'activate':
+                        $product->update(['active' => true]);
+                        $updated++;
+                        break;
+                    case 'deactivate':
+                        $product->update(['active' => false]);
+                        $updated++;
+                        break;
+                    case 'delete':
+                        // Check if product has bookings
+                        if ($product->bookings()->exists()) {
+                            $errors[] = "Product '{$product->name}' has bookings and cannot be deleted";
+                            continue 2;
+                        }
+                        
+                        // Delete uploaded icon if exists
+                        if ($product->icon && str_contains($product->icon, '/uploads/')) {
+                            $imageService = new ImageService();
+                            $imageService->deleteFile($product->icon);
+                        }
+                        
+                        $product->delete();
+                        $updated++;
+                        break;
+                }
+            } catch (\Exception $e) {
+                $errors[] = "Error processing product '{$product->name}': " . $e->getMessage();
+            }
+        }
+        
+        $response_data = [
+            'updated' => $updated,
+            'action' => $action,
+            'message' => "Successfully {$action}d {$updated} product(s)"
+        ];
+        
+        if (!empty($errors)) {
+            $response_data['errors'] = $errors;
+        }
+        
+        return $this->jsonSuccess($response, $response_data);
+    }
+
     public function uploadIcon(Request $request, Response $response): Response
     {
         // Admin only
@@ -271,5 +377,6 @@ class ProductController extends BaseController
         ]);
     }
 }
+
 
 

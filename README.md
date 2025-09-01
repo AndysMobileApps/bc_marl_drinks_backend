@@ -185,3 +185,4 @@ Die API ist vollständig kompatibel mit der iOS App:
 - CORS für mobile Apps konfiguriert
 
 
+

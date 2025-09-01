@@ -5,9 +5,22 @@
                 <i class="bi bi-box text-primary"></i>
                 Produktverwaltung
             </h1>
-            <button type="button" class="btn btn-primary" onclick="createNewProduct()">
-                <i class="bi bi-plus-circle"></i> Neues Produkt
-            </button>
+            <div class="d-flex gap-2">
+                <div id="bulkActions" class="btn-group" style="display: none;">
+                    <button type="button" class="btn btn-outline-success" onclick="bulkActivateProducts()">
+                        <i class="bi bi-check-circle"></i> Aktivieren
+                    </button>
+                    <button type="button" class="btn btn-outline-warning" onclick="bulkDeactivateProducts()">
+                        <i class="bi bi-pause-circle"></i> Deaktivieren
+                    </button>
+                    <button type="button" class="btn btn-outline-danger" onclick="bulkDeleteProducts()">
+                        <i class="bi bi-trash"></i> Löschen
+                    </button>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="createNewProduct()">
+                    <i class="bi bi-plus-circle"></i> Neues Produkt
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -49,17 +62,20 @@
                     <table class="table table-hover">
                         <thead>
                             <tr>
+                                <th width="40">
+                                    <input type="checkbox" class="form-check-input" id="selectAllProducts" onchange="toggleSelectAll()">
+                                </th>
                                 <th width="64">Icon</th>
                                 <th>Name</th>
                                 <th>Kategorie</th>
                                 <th>Preis</th>
                                 <th>Status</th>
-                                <th width="120">Aktionen</th>
+                                <th width="80">Aktion</th>
                             </tr>
                         </thead>
                         <tbody id="productsTableBody">
                             <tr>
-                                <td colspan="6" class="text-center">
+                                <td colspan="7" class="text-center">
                                     <div class="spinner-border" role="status">
                                         <span class="visually-hidden">Lädt...</span>
                                     </div>
@@ -209,12 +225,15 @@ function displayProducts(products) {
     const tbody = document.getElementById('productsTableBody');
     
     if (products.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Keine Produkte gefunden</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Keine Produkte gefunden</td></tr>';
         return;
     }
     
     tbody.innerHTML = products.map(product => `
         <tr class="${product.active ? '' : 'table-secondary'}">
+            <td>
+                <input type="checkbox" class="form-check-input product-checkbox" value="${product.id}" onchange="updateBulkActions()">
+            </td>
             <td>
                 <img src="${product.icon}" alt="${product.name}" width="48" height="48" class="rounded">
             </td>
@@ -237,16 +256,9 @@ function displayProducts(products) {
                 </span>
             </td>
             <td>
-                <div class="btn-group" role="group">
-                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="editProduct('${product.id}')" title="Bearbeiten">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                    <button type="button" class="btn btn-sm btn-outline-${product.active ? 'warning' : 'success'}" 
-                            onclick="toggleProductStatus('${product.id}', ${!product.active})" 
-                            title="${product.active ? 'Deaktivieren' : 'Aktivieren'}">
-                        <i class="bi bi-${product.active ? 'eye-slash' : 'eye'}"></i>
-                    </button>
-                </div>
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="editProduct('${product.id}')" title="Bearbeiten">
+                    <i class="bi bi-pencil"></i>
+                </button>
             </td>
         </tr>
     `).join('');
@@ -448,24 +460,125 @@ function createNewProduct() {
     productModal.show();
 }
 
-async function toggleProductStatus(productId, active) {
+// Bulk operations
+function getSelectedProductIds() {
+    const checkboxes = document.querySelectorAll('.product-checkbox:checked');
+    return Array.from(checkboxes).map(cb => cb.value);
+}
+
+function updateBulkActions() {
+    const selectedIds = getSelectedProductIds();
+    const bulkActions = document.getElementById('bulkActions');
+    
+    if (selectedIds.length > 0) {
+        bulkActions.style.display = 'inline-flex';
+        // Update button text with count
+        document.querySelector('#bulkActions .btn:nth-child(1)').innerHTML = 
+            `<i class="bi bi-check-circle"></i> Aktivieren (${selectedIds.length})`;
+        document.querySelector('#bulkActions .btn:nth-child(2)').innerHTML = 
+            `<i class="bi bi-pause-circle"></i> Deaktivieren (${selectedIds.length})`;
+        document.querySelector('#bulkActions .btn:nth-child(3)').innerHTML = 
+            `<i class="bi bi-trash"></i> Löschen (${selectedIds.length})`;
+    } else {
+        bulkActions.style.display = 'none';
+    }
+    
+    // Update select all checkbox state
+    const allCheckboxes = document.querySelectorAll('.product-checkbox');
+    const selectAllCheckbox = document.getElementById('selectAllProducts');
+    
+    if (selectedIds.length === 0) {
+        selectAllCheckbox.indeterminate = false;
+        selectAllCheckbox.checked = false;
+    } else if (selectedIds.length === allCheckboxes.length) {
+        selectAllCheckbox.indeterminate = false;
+        selectAllCheckbox.checked = true;
+    } else {
+        selectAllCheckbox.indeterminate = true;
+    }
+}
+
+function toggleSelectAll() {
+    const selectAllCheckbox = document.getElementById('selectAllProducts');
+    const productCheckboxes = document.querySelectorAll('.product-checkbox');
+    
+    productCheckboxes.forEach(checkbox => {
+        checkbox.checked = selectAllCheckbox.checked;
+    });
+    
+    updateBulkActions();
+}
+
+async function bulkActivateProducts() {
+    await performBulkAction('activate', 'Produkte aktivieren');
+}
+
+async function bulkDeactivateProducts() {
+    await performBulkAction('deactivate', 'Produkte deaktivieren');
+}
+
+async function bulkDeleteProducts() {
+    const selectedIds = getSelectedProductIds();
+    
+    if (!confirm(`Möchten Sie wirklich ${selectedIds.length} Produkt(e) permanent löschen? Diese Aktion kann nicht rückgängig gemacht werden.`)) {
+        return;
+    }
+    
+    await performBulkAction('delete', 'Produkte löschen');
+}
+
+async function performBulkAction(action, actionLabel) {
+    const selectedIds = getSelectedProductIds();
     const token = localStorage.getItem('adminToken');
     
+    if (selectedIds.length === 0) {
+        alert('Bitte wählen Sie mindestens ein Produkt aus.');
+        return;
+    }
+    
+    if (!token) {
+        window.location.href = '/admin/login';
+        return;
+    }
+    
     try {
-        const response = await fetch(`/v1/admin/products/${productId}`, {
-            method: 'PATCH',
+        const response = await fetch('/v1/admin/products/bulk-update', {
+            method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ active })
+            body: JSON.stringify({
+                productIds: selectedIds,
+                action: action
+            })
         });
         
+        if (response.status === 401) {
+            localStorage.removeItem('adminToken');
+            window.location.href = '/admin/login';
+            return;
+        }
+        
         if (response.ok) {
+            const result = await response.json();
+            
+            if (result.errors && result.errors.length > 0) {
+                alert(`${actionLabel} teilweise erfolgreich:\n\n${result.message}\n\nFehler:\n${result.errors.join('\n')}`);
+            } else {
+                alert(result.message);
+            }
+            
+            // Clear selections and reload
+            document.getElementById('selectAllProducts').checked = false;
+            updateBulkActions();
             loadProducts();
+        } else {
+            const error = await response.json().catch(() => ({ message: 'Server-Fehler' }));
+            alert(`Fehler beim ${actionLabel}: ` + (error.message || 'Unbekannter Fehler'));
         }
     } catch (error) {
-        console.error('Error toggling product status:', error);
+        alert(`Netzwerk-Fehler beim ${actionLabel}: ` + error.message);
     }
 }
 </script>
