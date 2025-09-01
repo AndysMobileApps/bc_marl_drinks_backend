@@ -42,12 +42,17 @@
             <option value="MEMBERSHIP">Mitgliedschaft</option>
         </select>
     </div>
-    <div class="col-md-3">
+    <div class="col-md-2">
         <select class="form-select" id="statusFilter">
             <option value="">Alle Status</option>
             <option value="active">Aktiv</option>
             <option value="inactive">Inaktiv</option>
         </select>
+    </div>
+    <div class="col-md-1">
+        <button type="button" class="btn btn-outline-secondary w-100" onclick="clearFilters()" title="Filter zurücksetzen">
+            <i class="bi bi-x-circle"></i>
+        </button>
     </div>
 </div>
 
@@ -157,6 +162,11 @@
 
 <script>
 let allProducts = [];
+let currentFilters = {
+    search: '',
+    category: '',
+    status: ''
+};
 
 document.addEventListener('DOMContentLoaded', function() {
     // Check authentication
@@ -212,7 +222,7 @@ async function loadProducts() {
         if (response.ok) {
             const result = await response.json();
             allProducts = result.products || [];
-            displayProducts(allProducts);
+            applyCurrentFilters();
         }
     } catch (error) {
         console.error('Error loading products:', error);
@@ -265,21 +275,36 @@ function displayProducts(products) {
 }
 
 function filterProducts() {
-    const searchTerm = document.getElementById('searchProducts').value.toLowerCase();
-    const categoryFilter = document.getElementById('categoryFilter').value;
-    const statusFilter = document.getElementById('statusFilter').value;
+    // Update current filter state
+    currentFilters.search = document.getElementById('searchProducts').value.toLowerCase();
+    currentFilters.category = document.getElementById('categoryFilter').value;
+    currentFilters.status = document.getElementById('statusFilter').value;
     
+    applyCurrentFilters();
+}
+
+function applyCurrentFilters() {
     const filteredProducts = allProducts.filter(product => {
-        const matchesSearch = product.name.toLowerCase().includes(searchTerm);
-        const matchesCategory = !categoryFilter || product.category === categoryFilter;
-        const matchesStatus = !statusFilter || 
-            (statusFilter === 'active' && product.active) ||
-            (statusFilter === 'inactive' && !product.active);
+        const matchesSearch = product.name.toLowerCase().includes(currentFilters.search);
+        const matchesCategory = !currentFilters.category || product.category === currentFilters.category;
+        const matchesStatus = !currentFilters.status || 
+            (currentFilters.status === 'active' && product.active) ||
+            (currentFilters.status === 'inactive' && !product.active);
         
         return matchesSearch && matchesCategory && matchesStatus;
     });
     
     displayProducts(filteredProducts);
+    
+    // Update filter UI to match current state
+    document.getElementById('searchProducts').value = currentFilters.search;
+    document.getElementById('categoryFilter').value = currentFilters.category;
+    document.getElementById('statusFilter').value = currentFilters.status;
+}
+
+function clearFilters() {
+    currentFilters = { search: '', category: '', status: '' };
+    applyCurrentFilters();
 }
 
 function getCategoryLabel(category) {
@@ -402,6 +427,7 @@ async function submitProductForm() {
         
         if (response.ok) {
             bootstrap.Modal.getInstance(document.getElementById('productModal')).hide();
+            // Reload products and reapply current filters
             loadProducts();
         } else {
             const error = await response.json().catch(() => ({ message: 'Server-Fehler' }));
@@ -569,7 +595,7 @@ async function performBulkAction(action, actionLabel) {
                 alert(result.message);
             }
             
-            // Clear selections and reload
+            // Clear selections and reload with preserved filters
             document.getElementById('selectAllProducts').checked = false;
             updateBulkActions();
             loadProducts();
