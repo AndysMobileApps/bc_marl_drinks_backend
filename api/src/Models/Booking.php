@@ -78,7 +78,7 @@ class Booking extends Model
     {
         $this->status = self::STATUS_VOIDED;
         $this->voidedByAdminId = $adminId;
-        $this->voidedAt = now();
+        $this->voidedAt = \Carbon\Carbon::now()->toDateTimeString();
         $this->save();
     }
 

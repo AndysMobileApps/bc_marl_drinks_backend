@@ -193,7 +193,7 @@ class UserController extends BaseController
             'userId' => $userId,
             'type' => 'DEPOSIT',
             'amountCents' => $data['amountCents'],
-            'timestamp' => now(),
+            'timestamp' => \Carbon\Carbon::now()->toDateTimeString(),
             'enteredByAdminId' => $adminId
         ]);
         

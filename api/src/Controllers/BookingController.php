@@ -52,7 +52,7 @@ class BookingController extends BaseController
             'quantity' => $data['quantity'],
             'unitPriceCents' => $product->priceCents,
             'totalCents' => $totalCents,
-            'timestamp' => now(),
+            'timestamp' => \Carbon\Carbon::now()->toDateTimeString(),
             'status' => 'booked'
         ]);
 
@@ -63,7 +63,7 @@ class BookingController extends BaseController
             'type' => 'DEBIT',
             'amountCents' => $totalCents,
             'reference' => $booking->id,
-            'timestamp' => now()
+            'timestamp' => \Carbon\Carbon::now()->toDateTimeString()
         ]);
 
         // Update user balance
@@ -181,7 +181,7 @@ class BookingController extends BaseController
             'type' => 'REVERSAL',
             'amountCents' => $booking->totalCents,
             'reference' => $booking->id,
-            'timestamp' => now(),
+            'timestamp' => \Carbon\Carbon::now()->toDateTimeString(),
             'enteredByAdminId' => $adminId
         ]);
         
