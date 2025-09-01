@@ -131,6 +131,8 @@ class Application
                 $admin->post('/users/{id}/deposit', [UserController::class, 'depositMoney']);
                 $admin->post('/products', [ProductController::class, 'createProduct']);
                 $admin->patch('/products/{id}', [ProductController::class, 'updateProduct']);
+                $admin->delete('/products/{id}', [ProductController::class, 'deleteProduct']);
+                $admin->post('/products/bulk-update', [ProductController::class, 'bulkUpdateProducts']);
                 // File upload routes
                 $admin->post('/products/upload-icon', [ProductController::class, 'uploadIcon']);
                 $admin->post('/products/with-icon', [ProductController::class, 'createProductWithIcon']);

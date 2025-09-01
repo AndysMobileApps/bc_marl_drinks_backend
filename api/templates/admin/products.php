@@ -5,9 +5,22 @@
                 <i class="bi bi-box text-primary"></i>
                 Produktverwaltung
             </h1>
-            <button type="button" class="btn btn-primary" onclick="createNewProduct()">
-                <i class="bi bi-plus-circle"></i> Neues Produkt
-            </button>
+            <div class="d-flex gap-2">
+                <div id="bulkActions" class="btn-group" style="display: none;">
+                    <button type="button" class="btn btn-outline-success" onclick="bulkActivateProducts()">
+                        <i class="bi bi-check-circle"></i> Aktivieren
+                    </button>
+                    <button type="button" class="btn btn-outline-warning" onclick="bulkDeactivateProducts()">
+                        <i class="bi bi-pause-circle"></i> Deaktivieren
+                    </button>
+                    <button type="button" class="btn btn-outline-danger" onclick="bulkDeleteProducts()">
+                        <i class="bi bi-trash"></i> Löschen
+                    </button>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="createNewProduct()">
+                    <i class="bi bi-plus-circle"></i> Neues Produkt
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -29,22 +42,54 @@
             <option value="MEMBERSHIP">Mitgliedschaft</option>
         </select>
     </div>
-    <div class="col-md-3">
+    <div class="col-md-2">
         <select class="form-select" id="statusFilter">
             <option value="">Alle Status</option>
             <option value="active">Aktiv</option>
             <option value="inactive">Inaktiv</option>
         </select>
     </div>
+    <div class="col-md-1">
+        <button type="button" class="btn btn-outline-secondary w-100" onclick="clearFilters()" title="Filter zurücksetzen">
+            <i class="bi bi-x-circle"></i>
+        </button>
+    </div>
 </div>
 
 
 
-<!-- Products Grid -->
-<div class="row" id="productsGrid">
-    <div class="col-12 text-center">
-        <div class="spinner-border" role="status">
-            <span class="visually-hidden">Lädt...</span>
+<!-- Products Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th width="40">
+                                    <input type="checkbox" class="form-check-input" id="selectAllProducts" onchange="toggleSelectAll()">
+                                </th>
+                                <th width="64">Icon</th>
+                                <th>Name</th>
+                                <th>Kategorie</th>
+                                <th>Preis</th>
+                                <th>Status</th>
+                                <th width="80">Aktion</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productsTableBody">
+                            <tr>
+                                <td colspan="7" class="text-center">
+                                    <div class="spinner-border" role="status">
+                                        <span class="visually-hidden">Lädt...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -117,6 +162,11 @@
 
 <script>
 let allProducts = [];
+let currentFilters = {
+    search: '',
+    category: '',
+    status: ''
+};
 
 document.addEventListener('DOMContentLoaded', function() {
     // Check authentication
@@ -172,7 +222,7 @@ async function loadProducts() {
         if (response.ok) {
             const result = await response.json();
             allProducts = result.products || [];
-            displayProducts(allProducts);
+            applyCurrentFilters();
         }
     } catch (error) {
         console.error('Error loading products:', error);
@@ -182,77 +232,79 @@ async function loadProducts() {
 
 
 function displayProducts(products) {
-    const grid = document.getElementById('productsGrid');
+    const tbody = document.getElementById('productsTableBody');
     
     if (products.length === 0) {
-        grid.innerHTML = '<div class="col-12 text-center text-muted">Keine Produkte gefunden</div>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Keine Produkte gefunden</td></tr>';
         return;
     }
     
-    grid.innerHTML = products.map(product => `
-        <div class="col-md-6 col-lg-4 mb-4">
-            <div class="card h-100 ${product.active ? '' : 'opacity-75'}">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start mb-3">
-                        <div><img src="${product.icon}" alt="${product.name}" width="48" height="48" class="rounded"></div>
-                        <div class="dropdown">
-                            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown">
-                                <i class="bi bi-three-dots-vertical"></i>
-                            </button>
-                            <ul class="dropdown-menu">
-                                <li><a class="dropdown-item" href="#" onclick="editProduct('${product.id}')">
-                                    <i class="bi bi-pencil"></i> Bearbeiten
-                                </a></li>
-                                <li><a class="dropdown-item" href="#" onclick="toggleProductStatus('${product.id}', ${!product.active})">
-                                    <i class="bi bi-${product.active ? 'eye-slash' : 'eye'}"></i> 
-                                    ${product.active ? 'Deaktivieren' : 'Aktivieren'}
-                                </a></li>
-                            </ul>
-                        </div>
-                    </div>
-                    
-                    <h5 class="card-title">${product.name}</h5>
-                    
-                    <div class="mb-2">
-                        <span class="badge bg-secondary">${getCategoryLabel(product.category)}</span>
-                        <span class="badge bg-${product.active ? 'success' : 'warning'}">
-                            ${product.active ? 'Aktiv' : 'Inaktiv'}
-                        </span>
-                    </div>
-                    
-                    <div class="text-end">
-                        <span class="h5 text-primary">
-                            ${new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(product.priceCents / 100)}
-                        </span>
-                    </div>
-                </div>
-                
-                <div class="card-footer bg-transparent">
-                    <small class="text-muted">
-                        Erstellt: ${new Date(product.createdAt).toLocaleDateString('de-DE')}
-                    </small>
-                </div>
-            </div>
-        </div>
+    tbody.innerHTML = products.map(product => `
+        <tr class="${product.active ? '' : 'table-secondary'}">
+            <td>
+                <input type="checkbox" class="form-check-input product-checkbox" value="${product.id}" onchange="updateBulkActions()">
+            </td>
+            <td>
+                <img src="${product.icon}" alt="${product.name}" width="48" height="48" class="rounded">
+            </td>
+            <td>
+                <div class="fw-semibold">${product.name}</div>
+                <small class="text-muted">ID: ${product.id.substring(0, 8)}...</small>
+            </td>
+            <td>
+                <span class="badge bg-secondary">${getCategoryLabel(product.category)}</span>
+            </td>
+            <td>
+                <span class="fw-bold text-primary">
+                    ${new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(product.priceCents / 100)}
+                </span>
+            </td>
+            <td>
+                <span class="badge bg-${product.active ? 'success' : 'warning'}">
+                    <i class="bi bi-${product.active ? 'check-circle' : 'pause-circle'}"></i>
+                    ${product.active ? 'Aktiv' : 'Inaktiv'}
+                </span>
+            </td>
+            <td>
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="editProduct('${product.id}')" title="Bearbeiten">
+                    <i class="bi bi-pencil"></i>
+                </button>
+            </td>
+        </tr>
     `).join('');
 }
 
 function filterProducts() {
-    const searchTerm = document.getElementById('searchProducts').value.toLowerCase();
-    const categoryFilter = document.getElementById('categoryFilter').value;
-    const statusFilter = document.getElementById('statusFilter').value;
+    // Update current filter state
+    currentFilters.search = document.getElementById('searchProducts').value.toLowerCase();
+    currentFilters.category = document.getElementById('categoryFilter').value;
+    currentFilters.status = document.getElementById('statusFilter').value;
     
+    applyCurrentFilters();
+}
+
+function applyCurrentFilters() {
     const filteredProducts = allProducts.filter(product => {
-        const matchesSearch = product.name.toLowerCase().includes(searchTerm);
-        const matchesCategory = !categoryFilter || product.category === categoryFilter;
-        const matchesStatus = !statusFilter || 
-            (statusFilter === 'active' && product.active) ||
-            (statusFilter === 'inactive' && !product.active);
+        const matchesSearch = product.name.toLowerCase().includes(currentFilters.search);
+        const matchesCategory = !currentFilters.category || product.category === currentFilters.category;
+        const matchesStatus = !currentFilters.status || 
+            (currentFilters.status === 'active' && product.active) ||
+            (currentFilters.status === 'inactive' && !product.active);
         
         return matchesSearch && matchesCategory && matchesStatus;
     });
     
     displayProducts(filteredProducts);
+    
+    // Update filter UI to match current state
+    document.getElementById('searchProducts').value = currentFilters.search;
+    document.getElementById('categoryFilter').value = currentFilters.category;
+    document.getElementById('statusFilter').value = currentFilters.status;
+}
+
+function clearFilters() {
+    currentFilters = { search: '', category: '', status: '' };
+    applyCurrentFilters();
 }
 
 function getCategoryLabel(category) {
@@ -375,6 +427,7 @@ async function submitProductForm() {
         
         if (response.ok) {
             bootstrap.Modal.getInstance(document.getElementById('productModal')).hide();
+            // Reload products and reapply current filters
             loadProducts();
         } else {
             const error = await response.json().catch(() => ({ message: 'Server-Fehler' }));
@@ -433,24 +486,125 @@ function createNewProduct() {
     productModal.show();
 }
 
-async function toggleProductStatus(productId, active) {
+// Bulk operations
+function getSelectedProductIds() {
+    const checkboxes = document.querySelectorAll('.product-checkbox:checked');
+    return Array.from(checkboxes).map(cb => cb.value);
+}
+
+function updateBulkActions() {
+    const selectedIds = getSelectedProductIds();
+    const bulkActions = document.getElementById('bulkActions');
+    
+    if (selectedIds.length > 0) {
+        bulkActions.style.display = 'inline-flex';
+        // Update button text with count
+        document.querySelector('#bulkActions .btn:nth-child(1)').innerHTML = 
+            `<i class="bi bi-check-circle"></i> Aktivieren (${selectedIds.length})`;
+        document.querySelector('#bulkActions .btn:nth-child(2)').innerHTML = 
+            `<i class="bi bi-pause-circle"></i> Deaktivieren (${selectedIds.length})`;
+        document.querySelector('#bulkActions .btn:nth-child(3)').innerHTML = 
+            `<i class="bi bi-trash"></i> Löschen (${selectedIds.length})`;
+    } else {
+        bulkActions.style.display = 'none';
+    }
+    
+    // Update select all checkbox state
+    const allCheckboxes = document.querySelectorAll('.product-checkbox');
+    const selectAllCheckbox = document.getElementById('selectAllProducts');
+    
+    if (selectedIds.length === 0) {
+        selectAllCheckbox.indeterminate = false;
+        selectAllCheckbox.checked = false;
+    } else if (selectedIds.length === allCheckboxes.length) {
+        selectAllCheckbox.indeterminate = false;
+        selectAllCheckbox.checked = true;
+    } else {
+        selectAllCheckbox.indeterminate = true;
+    }
+}
+
+function toggleSelectAll() {
+    const selectAllCheckbox = document.getElementById('selectAllProducts');
+    const productCheckboxes = document.querySelectorAll('.product-checkbox');
+    
+    productCheckboxes.forEach(checkbox => {
+        checkbox.checked = selectAllCheckbox.checked;
+    });
+    
+    updateBulkActions();
+}
+
+async function bulkActivateProducts() {
+    await performBulkAction('activate', 'Produkte aktivieren');
+}
+
+async function bulkDeactivateProducts() {
+    await performBulkAction('deactivate', 'Produkte deaktivieren');
+}
+
+async function bulkDeleteProducts() {
+    const selectedIds = getSelectedProductIds();
+    
+    if (!confirm(`Möchten Sie wirklich ${selectedIds.length} Produkt(e) permanent löschen? Diese Aktion kann nicht rückgängig gemacht werden.`)) {
+        return;
+    }
+    
+    await performBulkAction('delete', 'Produkte löschen');
+}
+
+async function performBulkAction(action, actionLabel) {
+    const selectedIds = getSelectedProductIds();
     const token = localStorage.getItem('adminToken');
     
+    if (selectedIds.length === 0) {
+        alert('Bitte wählen Sie mindestens ein Produkt aus.');
+        return;
+    }
+    
+    if (!token) {
+        window.location.href = '/admin/login';
+        return;
+    }
+    
     try {
-        const response = await fetch(`/v1/admin/products/${productId}`, {
-            method: 'PATCH',
+        const response = await fetch('/v1/admin/products/bulk-update', {
+            method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ active })
+            body: JSON.stringify({
+                productIds: selectedIds,
+                action: action
+            })
         });
         
+        if (response.status === 401) {
+            localStorage.removeItem('adminToken');
+            window.location.href = '/admin/login';
+            return;
+        }
+        
         if (response.ok) {
+            const result = await response.json();
+            
+            if (result.errors && result.errors.length > 0) {
+                alert(`${actionLabel} teilweise erfolgreich:\n\n${result.message}\n\nFehler:\n${result.errors.join('\n')}`);
+            } else {
+                alert(result.message);
+            }
+            
+            // Clear selections and reload with preserved filters
+            document.getElementById('selectAllProducts').checked = false;
+            updateBulkActions();
             loadProducts();
+        } else {
+            const error = await response.json().catch(() => ({ message: 'Server-Fehler' }));
+            alert(`Fehler beim ${actionLabel}: ` + (error.message || 'Unbekannter Fehler'));
         }
     } catch (error) {
-        console.error('Error toggling product status:', error);
+        alert(`Netzwerk-Fehler beim ${actionLabel}: ` + error.message);
     }
 }
 </script>
