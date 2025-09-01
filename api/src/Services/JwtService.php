@@ -28,9 +28,22 @@ class JwtService
     {
         try {
             $decoded = JWT::decode($token, new Key($_ENV['JWT_SECRET'], 'HS256'));
-            return (array) $decoded;
+            $payload = (array) $decoded;
+            
+            // Handle both token structures for backward compatibility
+            // Old structure: data.userId, data.role + iss="bcmarl" 
+            // New structure: direct userId, role + iss="bcmarl-drinks-api"
+            if (isset($payload['data']) && is_object($payload['data'])) {
+                // Convert old nested structure to new flat structure
+                $data = (array) $payload['data'];
+                $payload['userId'] = $data['userId'] ?? null;
+                $payload['role'] = $data['role'] ?? null;
+                $payload['email'] = $data['email'] ?? null;
+            }
+            
+            return $payload;
         } catch (\Exception $e) {
-            throw new \InvalidArgumentException('Invalid or expired token');
+            throw new \InvalidArgumentException('Invalid or expired token: ' . $e->getMessage());
         }
     }
 

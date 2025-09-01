@@ -27,10 +27,19 @@ class JwtMiddleware
         try {
             $payload = JwtService::validateToken($token);
             
+            // Handle both old nested structure (data.userId) and new direct structure (userId)
+            $userId = $payload['userId'] ?? $payload['data']['userId'] ?? null;
+            $userRole = $payload['role'] ?? $payload['data']['role'] ?? null;
+            $userEmail = $payload['email'] ?? $payload['data']['email'] ?? null;
+            
+            if (!$userId || !$userRole) {
+                throw new \InvalidArgumentException('Missing user data in token');
+            }
+            
             // Add user info to request attributes for use in controllers
-            $request = $request->withAttribute('userId', $payload['userId']);
-            $request = $request->withAttribute('userRole', $payload['role']);
-            $request = $request->withAttribute('userEmail', $payload['email']);
+            $request = $request->withAttribute('userId', $userId);
+            $request = $request->withAttribute('userRole', $userRole);
+            $request = $request->withAttribute('userEmail', $userEmail);
             
             return $handler->handle($request);
         } catch (\Exception $e) {
