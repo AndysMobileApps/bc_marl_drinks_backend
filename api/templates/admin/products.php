@@ -171,6 +171,26 @@ let currentFilters = {
 document.addEventListener('DOMContentLoaded', function() {
     // Check authentication
     const token = localStorage.getItem('adminToken');
+    
+    // Force token refresh for users with old incompatible tokens
+    if (token) {
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            // Check if this is an old token with nested data structure or wrong iss
+            if (payload.iss === 'bcmarl' || (payload.data && payload.data.userId)) {
+                console.log('Detected old incompatible token, clearing and redirecting to login...');
+                localStorage.removeItem('adminToken');
+                sessionStorage.removeItem('adminToken');
+                window.location.href = '/admin/login';
+                return;
+            }
+        } catch (e) {
+            // Token decode failed, clear it
+            localStorage.removeItem('adminToken');
+            sessionStorage.removeItem('adminToken');
+        }
+    }
+    
     if (!token) {
         window.location.href = '/admin/login';
         return;
@@ -179,7 +199,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load products
     loadProducts();
     
-    // Setup form handling
+    // Setup form handling  
     const productForm = document.getElementById('productForm');
     if (productForm) {
         productForm.onsubmit = function(e) {
@@ -355,7 +375,13 @@ function editProduct(productId) {
     }
 }
 
-async function submitProductForm() {
+async function submitProductForm(event) {
+    // Prevent any form submission
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    
     const form = document.getElementById('productForm');
     if (!form) return;
     
@@ -363,6 +389,8 @@ async function submitProductForm() {
     const submitButton = document.querySelector('#productModal button[onclick="submitProductForm()"]');
     const token = localStorage.getItem('adminToken');
     const productId = formData.get('productId');
+    
+
     
     if (!token) {
         window.location.href = '/admin/login';
@@ -390,9 +418,19 @@ async function submitProductForm() {
                 body: iconFormData
             });
             
+            if (iconResponse.status === 401) {
+                localStorage.removeItem('adminToken');
+                window.location.href = '/admin/login';
+                return;
+            }
+            
             if (iconResponse.ok) {
                 const iconResult = await iconResponse.json();
                 iconPath = iconResult.iconPath;
+            } else {
+                const iconError = await iconResponse.json().catch(() => ({ message: 'Icon upload failed' }));
+                alert('Icon Upload Fehler: ' + (iconError.message || 'Unbekannter Fehler'));
+                return; // Stop processing if icon upload fails
             }
         }
         
@@ -431,7 +469,7 @@ async function submitProductForm() {
             loadProducts();
         } else {
             const error = await response.json().catch(() => ({ message: 'Server-Fehler' }));
-            alert('Fehler beim Speichern: ' + (error.message || 'Unbekannter Fehler'));
+            alert('Fehler beim Speichern des Produkts: ' + (error.message || 'Unbekannter Fehler'));
         }
     } catch (error) {
         alert('Fehler beim Speichern des Produkts: ' + error.message);
